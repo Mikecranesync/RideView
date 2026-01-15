@@ -1,0 +1,130 @@
+# RideView Configuration
+# Default settings - override in development.yaml or production.yaml
+
+app:
+  name: "RideView"
+  version: "0.1.0"
+  debug: false
+
+camera:
+  # Camera source: integer for device index, string for video file path
+  source: 0
+  # Backend for Windows: CAP_DSHOW or CAP_MSMF (recommended)
+  backend: "CAP_MSMF"
+  # Resolution
+  width: 1280
+  height: 720
+  # Frame rate
+  fps: 30
+  # Buffer size (lower = less latency)
+  buffer_size: 1
+  # Auto-exposure: true = auto, false = manual
+  auto_exposure: true
+
+preprocessing:
+  # Gaussian blur kernel size (must be odd)
+  blur_kernel: [5, 5]
+  # Enable histogram equalization
+  histogram_eq: false
+  # Contrast enhancement (CLAHE)
+  clahe:
+    enabled: true
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+
+colors:
+  # Which colors to detect
+  enabled_colors:
+    - red
+    - yellow
+    - orange
+
+  # HSV ranges for color detection
+  # H: 0-179, S: 0-255, V: 0-255 (OpenCV convention)
+  custom_ranges:
+    # Red wraps around hue 0, so needs two ranges
+    red_low:
+      lower: [0, 100, 100]
+      upper: [10, 255, 255]
+    red_high:
+      lower: [170, 100, 100]
+      upper: [179, 255, 255]
+    # Yellow
+    yellow:
+      lower: [20, 100, 100]
+      upper: [35, 255, 255]
+    # Orange
+    orange:
+      lower: [10, 100, 100]
+      upper: [20, 255, 255]
+
+morphology:
+  # Closing kernel (fills small gaps in stripe)
+  close_kernel: [5, 5]
+  close_iterations: 2
+  # Opening kernel (removes noise)
+  open_kernel: [3, 3]
+  open_iterations: 1
+
+line_analysis:
+  # Minimum pixel area to consider valid stripe
+  min_stripe_area: 500
+  # Expected stripe width range in pixels
+  expected_width_range: [10, 100]
+  # Scan direction: horizontal or vertical
+  scan_direction: "horizontal"
+  # Minimum gap size to count (pixels)
+  gap_threshold: 5
+
+thresholds:
+  # PASS classification - strict requirements
+  pass:
+    min_coverage: 0.95    # 95%+ coverage required
+    max_gaps: 0           # No gaps allowed
+    max_gap_size: 0       # No gap size allowed
+
+  # WARNING classification - moderate degradation
+  warning:
+    min_coverage: 0.80    # 80%+ coverage
+    max_gaps: 2           # Up to 2 small gaps
+    max_gap_size: 20      # Gap up to 20 pixels
+
+  # Below WARNING thresholds = FAIL
+  # Minimum confidence to make classification
+  min_confidence: 0.5
+
+visualization:
+  # Colors for overlay (BGR format)
+  pass_color: [0, 255, 0]       # Green
+  warning_color: [0, 165, 255]  # Orange
+  fail_color: [0, 0, 255]       # Red
+  no_stripe_color: [128, 128, 128]  # Gray
+
+  # Overlay settings
+  font_scale: 1.0
+  font_thickness: 2
+  show_mask_overlay: true
+  mask_opacity: 0.3
+
+web:
+  host: "0.0.0.0"
+  port: 5000
+  # MJPEG stream quality (0-100)
+  stream_quality: 85
+  # Max stream FPS (limit to reduce bandwidth)
+  max_stream_fps: 15
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/rideview.log"
+  max_bytes: 10485760  # 10 MB
+  backup_count: 5
+
+snapshots:
+  # Directory to save snapshots
+  directory: "snapshots"
+  # Filename format (strftime)
+  filename_format: "%Y%m%d_%H%M%S_{result}.jpg"
+  # Include detection overlay in snapshot
+  include_overlay: true

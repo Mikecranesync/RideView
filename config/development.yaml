@@ -1,0 +1,16 @@
+# RideView Development Configuration
+# Overrides for development environment
+
+app:
+  debug: true
+
+logging:
+  level: "DEBUG"
+
+visualization:
+  show_mask_overlay: true
+  mask_opacity: 0.5
+
+web:
+  # Enable debug mode for Flask
+  debug: true

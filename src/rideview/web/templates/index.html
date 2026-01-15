@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}RideView - Dashboard{% endblock %}
+
+{% block content %}
+<!-- Video Feed -->
+<section class="video-section">
+    <div class="video-container">
+        <img id="video-feed" src="{{ url_for('stream.video_feed') }}" alt="Live Camera Feed">
+        <div id="status-overlay" class="status-overlay">
+            <span id="status-indicator" class="status-indicator status-unknown">INITIALIZING</span>
+        </div>
+    </div>
+
+    <div class="video-controls">
+        <button id="btn-snapshot" class="btn btn-primary" onclick="captureSnapshot()">Snapshot</button>
+        <button id="btn-toggle-feed" class="btn" onclick="toggleFeed()">Raw Feed</button>
+        <button id="btn-refresh" class="btn" onclick="refreshFeed()">Refresh</button>
+    </div>
+</section>
+
+<!-- Detection Results -->
+<section class="results-section">
+    <h2>Detection Results</h2>
+    <div class="metrics-grid">
+        <div class="metric">
+            <label>Status</label>
+            <span id="metric-status" class="metric-value">--</span>
+        </div>
+        <div class="metric">
+            <label>Coverage</label>
+            <span id="metric-coverage" class="metric-value">--</span>
+        </div>
+        <div class="metric">
+            <label>Gaps</label>
+            <span id="metric-gaps" class="metric-value">--</span>
+        </div>
+        <div class="metric">
+            <label>Confidence</label>
+            <span id="metric-confidence" class="metric-value">--</span>
+        </div>
+        <div class="metric">
+            <label>Processing</label>
+            <span id="metric-time" class="metric-value">--</span>
+        </div>
+    </div>
+</section>
+
+<!-- Reason Panel -->
+<section class="reason-section">
+    <h3>Analysis</h3>
+    <p id="analysis-reason">Waiting for detection...</p>
+</section>
+
+<!-- Quick Actions -->
+<section class="actions-section">
+    <h2>Actions</h2>
+    <div class="action-buttons">
+        <button class="btn" onclick="listCameras()">List Cameras</button>
+        <a href="/api/config" target="_blank" class="btn">View Config</a>
+        <a href="/api/colors" target="_blank" class="btn">Color Ranges</a>
+    </div>
+</section>
+
+<!-- Camera Info Modal -->
+<div id="camera-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <h3>Available Cameras</h3>
+        <ul id="camera-list"></ul>
+        <button class="btn" onclick="closeCameraModal()">Close</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Feed toggle state
+    let showingRawFeed = false;
+
+    // Start status polling
+    setInterval(updateStatus, 500);
+
+    async function updateStatus() {
+        try {
+            const response = await fetch('/api/status');
+            const data = await response.json();
+
+            if (data.status === 'no_data') {
+                return;
+            }
+
+            // Update status indicator
+            const indicator = document.getElementById('status-indicator');
+            indicator.textContent = data.result;
+            indicator.className = 'status-indicator status-' + data.result.toLowerCase();
+
+            // Update metrics
+            document.getElementById('metric-status').textContent = data.result;
+            document.getElementById('metric-coverage').textContent = data.coverage_percent.toFixed(1) + '%';
+            document.getElementById('metric-gaps').textContent = data.gap_count;
+            document.getElementById('metric-confidence').textContent = (data.confidence * 100).toFixed(0) + '%';
+            document.getElementById('metric-time').textContent = data.processing_time_ms.toFixed(1) + 'ms';
+
+            // Update reason
+            document.getElementById('analysis-reason').textContent = data.reason || 'No details';
+
+            // Color code the status metric
+            const statusEl = document.getElementById('metric-status');
+            statusEl.className = 'metric-value status-' + data.result.toLowerCase();
+
+        } catch (error) {
+            console.error('Error fetching status:', error);
+        }
+    }
+
+    function toggleFeed() {
+        const feed = document.getElementById('video-feed');
+        const btn = document.getElementById('btn-toggle-feed');
+
+        if (showingRawFeed) {
+            feed.src = '/stream/video_feed';
+            btn.textContent = 'Raw Feed';
+        } else {
+            feed.src = '/stream/raw_feed';
+            btn.textContent = 'Detection Feed';
+        }
+        showingRawFeed = !showingRawFeed;
+    }
+
+    function refreshFeed() {
+        const feed = document.getElementById('video-feed');
+        const src = feed.src;
+        feed.src = '';
+        setTimeout(() => { feed.src = src; }, 100);
+    }
+
+    async function captureSnapshot() {
+        try {
+            const response = await fetch('/api/snapshot', { method: 'POST' });
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                alert('Snapshot saved: ' + data.filepath);
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (error) {
+            alert('Error capturing snapshot: ' + error);
+        }
+    }
+
+    async function listCameras() {
+        try {
+            const response = await fetch('/api/cameras');
+            const data = await response.json();
+
+            const list = document.getElementById('camera-list');
+            list.innerHTML = '';
+
+            if (data.cameras.length === 0) {
+                list.innerHTML = '<li>No cameras found</li>';
+            } else {
+                data.cameras.forEach(cam => {
+                    const li = document.createElement('li');
+                    li.textContent = 'Camera ' + cam;
+                    list.appendChild(li);
+                });
+            }
+
+            document.getElementById('camera-modal').style.display = 'flex';
+        } catch (error) {
+            alert('Error listing cameras: ' + error);
+        }
+    }
+
+    function closeCameraModal() {
+        document.getElementById('camera-modal').style.display = 'none';
+    }
+</script>
+{% endblock %}
