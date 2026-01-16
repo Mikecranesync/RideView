@@ -3,7 +3,7 @@
 
 app:
   name: "RideView"
-  version: "0.1.0"
+  version: "2.0.0"
   debug: false
 
 camera:
@@ -31,6 +31,41 @@ preprocessing:
     enabled: true
     clip_limit: 2.0
     tile_grid_size: [8, 8]
+
+# Fastener shape detection (v2.0)
+# Detects bolt heads, nuts, washers to create ROI for stripe detection
+# This eliminates false positives from random lines in the environment
+fastener_detection:
+  # Enable fastener detection
+  enabled: true
+  # If true, no fastener detected = NO_STRIPE result (strict mode)
+  require_fastener: true
+  # Minimum confidence for fastener detection
+  confidence_threshold: 0.6
+  # Margin around detected fastener for ROI (pixels)
+  roi_margin: 10
+
+  # Shape-specific settings
+  shapes:
+    # Hexagonal bolt heads
+    hexagon:
+      enabled: true
+      min_area: 500       # Minimum pixel area
+      max_area: 100000    # Maximum pixel area
+    # Round bolt heads
+    circle:
+      enabled: true
+      min_radius: 20      # Minimum radius in pixels
+      max_radius: 200     # Maximum radius in pixels
+    # Phillips head screws
+    phillips:
+      enabled: true
+    # Flat washers (ring shape)
+    washer:
+      enabled: true
+    # Hex nuts with center hole
+    nut:
+      enabled: true
 
 colors:
   # Which colors to detect

@@ -3,10 +3,11 @@ Main torque stripe detector orchestrator.
 
 Coordinates the detection pipeline:
 1. Preprocessing
-2. Color segmentation
-3. Morphological cleanup
-4. Line continuity analysis
-5. Classification
+2. Fastener detection (v2.0) - creates ROI boundary
+3. Color segmentation
+4. Morphological cleanup
+5. Line continuity analysis
+6. Classification
 """
 
 import time
@@ -16,6 +17,7 @@ import cv2
 import numpy as np
 
 from ..detection.color_segmenter import ColorSegmenter
+from ..detection.fastener_detector import FastenerDetector, FastenerResult
 from ..detection.line_analyzer import LineAnalyzer
 from ..detection.preprocessor import Preprocessor
 from ..detection.stripe_validator import StripeValidator
@@ -41,6 +43,7 @@ class TorqueStripeDetector:
         Args:
             config: Full configuration dictionary containing:
                 - preprocessing: Preprocessor settings
+                - fastener_detection: Fastener detector settings (v2.0)
                 - colors: Color segmentation settings
                 - morphology: Morphological operation settings
                 - line_analysis: Line analyzer settings
@@ -51,9 +54,15 @@ class TorqueStripeDetector:
 
         # Initialize pipeline components
         self.preprocessor = Preprocessor(config.get("preprocessing", {}))
+        self.fastener_detector = FastenerDetector(config.get("fastener_detection", {}))
         self.color_segmenter = ColorSegmenter(config.get("colors", {}))
         self.line_analyzer = LineAnalyzer(config.get("line_analysis", {}))
         self.validator = StripeValidator(config.get("thresholds", {}))
+
+        # Fastener detection settings
+        fastener_config = config.get("fastener_detection", {})
+        self.fastener_enabled = fastener_config.get("enabled", True)
+        self.require_fastener = fastener_config.get("require_fastener", True)
 
         # Morphology settings
         morph_config = config.get("morphology", {})
@@ -85,7 +94,7 @@ class TorqueStripeDetector:
 
         Args:
             frame: BGR image from camera
-            roi: Optional (x, y, w, h) region of interest
+            roi: Optional (x, y, w, h) region of interest (overrides fastener detection)
 
         Returns:
             StripeAnalysis with detection results
@@ -95,7 +104,38 @@ class TorqueStripeDetector:
         # Step 1: Preprocess
         processed = self.preprocessor.process(frame)
 
-        # Step 2: Apply ROI if specified
+        # Step 2: Fastener detection (v2.0) - creates automatic ROI
+        fastener_result: FastenerResult | None = None
+        if self.fastener_enabled and roi is None:
+            fastener_result = self.fastener_detector.detect(frame)
+
+            if fastener_result.detected and fastener_result.bounding_box:
+                # Use fastener bounding box as ROI
+                roi = fastener_result.bounding_box
+            elif self.require_fastener:
+                # No fastener detected and fastener required - return NO_STRIPE
+                elapsed_ms = (time.perf_counter() - start_time) * 1000
+                annotated = self._annotate_frame(
+                    frame,
+                    np.zeros(frame.shape[:2], dtype=np.uint8),
+                    DetectionResult.NO_STRIPE,
+                    "No fastener detected in frame",
+                    roi=None,
+                    fastener_result=fastener_result,
+                )
+                return StripeAnalysis(
+                    result=DetectionResult.NO_STRIPE,
+                    confidence=0.0,
+                    coverage_percent=0.0,
+                    gap_count=0,
+                    max_gap_size=0,
+                    stripe_mask=None,
+                    annotated_frame=annotated,
+                    processing_time_ms=elapsed_ms,
+                    reason="No fastener detected in frame",
+                )
+
+        # Step 3: Apply ROI (from manual selection or fastener detection)
         if roi:
             x, y, w, h = roi
             roi_frame = processed[y : y + h, x : x + w]
@@ -103,20 +143,20 @@ class TorqueStripeDetector:
             roi_frame = processed
             x, y = 0, 0
 
-        # Step 3: Color segmentation (HSV)
+        # Step 4: Color segmentation (HSV)
         color_mask = self.color_segmenter.segment(roi_frame)
 
-        # Step 4: Morphological cleanup
+        # Step 5: Morphological cleanup
         cleaned_mask = self._apply_morphology(color_mask)
 
-        # Step 5: Line continuity analysis
+        # Step 6: Line continuity analysis
         line_metrics = self.line_analyzer.analyze(cleaned_mask)
 
-        # Step 6: Validate and classify
+        # Step 7: Validate and classify
         result = self.validator.classify(line_metrics)
         reason = self.validator.get_classification_reason(line_metrics, result)
 
-        # Step 7: Generate annotated frame
+        # Step 8: Generate annotated frame
         # Create full-size mask for annotation
         full_mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         if roi:
@@ -124,7 +164,9 @@ class TorqueStripeDetector:
         else:
             full_mask = cleaned_mask
 
-        annotated = self._annotate_frame(frame, full_mask, result, reason, roi)
+        annotated = self._annotate_frame(
+            frame, full_mask, result, reason, roi, fastener_result
+        )
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -166,6 +208,7 @@ class TorqueStripeDetector:
         result: DetectionResult,
         reason: str,
         roi: tuple[int, int, int, int] | None = None,
+        fastener_result: FastenerResult | None = None,
     ) -> np.ndarray:
         """
         Create annotated frame with detection overlay.
@@ -176,11 +219,16 @@ class TorqueStripeDetector:
             result: Classification result
             reason: Classification reason
             roi: Region of interest coordinates
+            fastener_result: Optional fastener detection result for overlay
 
         Returns:
             Annotated BGR frame
         """
         annotated = frame.copy()
+
+        # Draw fastener detection overlay first (if detected)
+        if fastener_result and fastener_result.detected:
+            annotated = self.fastener_detector.draw_overlay(annotated, fastener_result)
 
         # Get color based on result
         color = self._get_result_color(result)
@@ -198,8 +246,8 @@ class TorqueStripeDetector:
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             cv2.drawContours(annotated, contours, -1, color, 2)
 
-        # Draw ROI rectangle if specified
-        if roi:
+        # Draw ROI rectangle if specified (and not from fastener - already drawn)
+        if roi and fastener_result is None:
             x, y, w, h = roi
             cv2.rectangle(annotated, (x, y), (x + w, y + h), (255, 255, 255), 2)
 
