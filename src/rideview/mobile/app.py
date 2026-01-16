@@ -9,6 +9,9 @@ import os
 import platform as sys_platform
 from pathlib import Path
 
+# Prevent Kivy from consuming command-line arguments
+os.environ["KIVY_NO_ARGS"] = "1"
+
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.core.window import Window
@@ -37,19 +40,19 @@ class RideViewApp(App):
     - UI updates (via MainScreen)
     """
 
-    def __init__(self, config: Config | None = None, **kwargs):
+    def __init__(self, app_config: Config | None = None, **kwargs):
         """
         Initialize the RideView app.
 
         Args:
-            config: Optional Config object. If not provided, loads from default location.
+            app_config: Optional Config object. If not provided, loads from default location.
         """
         super().__init__(**kwargs)
 
-        # Load configuration
-        if config is None:
-            config = Config()
-        self.config = config
+        # Load configuration (use app_config to avoid conflict with Kivy's config)
+        if app_config is None:
+            app_config = Config()
+        self.app_config = app_config
 
         # Detect platform
         self.platform_type = self._detect_platform()
@@ -109,11 +112,11 @@ class RideViewApp(App):
             Window.size = (1080, 1920)
 
         # Initialize detection pipeline
-        self.detector = TorqueStripeDetector(self.config.as_dict)
+        self.detector = TorqueStripeDetector(self.app_config.as_dict)
         Logger.info("RideView: Detection pipeline initialized")
 
         # Initialize camera provider
-        camera_config = self.config.get("camera", {})
+        camera_config = self.app_config.get("camera", {})
         self.camera_provider = get_camera_provider(camera_config, self.platform_type)
         Logger.info(f"RideView: Camera provider initialized ({type(self.camera_provider).__name__})")
 
@@ -124,7 +127,7 @@ class RideViewApp(App):
         )
 
         # Initialize recording manager
-        recording_config = self.config.get("recording", {})
+        recording_config = self.app_config.get("recording", {})
         self.recording_manager = RecordingManager(
             output_dir=self.recording_dir,
             config=recording_config,
@@ -136,7 +139,7 @@ class RideViewApp(App):
             camera_provider=self.camera_provider,
             detection_worker=self.detection_worker,
             recording_manager=self.recording_manager,
-            config=self.config,
+            config=self.app_config,
         )
 
         return self.main_screen
@@ -223,5 +226,5 @@ def run_mobile_app(config: Config | None = None):
     Args:
         config: Optional Config object.
     """
-    app = RideViewApp(config=config)
+    app = RideViewApp(app_config=config)
     app.run()
