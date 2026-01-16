@@ -138,10 +138,38 @@ class TorqueStripeDetector:
         # Step 3: Apply ROI (from manual selection or fastener detection)
         if roi:
             x, y, w, h = roi
+            # Validate ROI bounds
+            x = max(0, min(x, processed.shape[1] - 1))
+            y = max(0, min(y, processed.shape[0] - 1))
+            w = max(1, min(w, processed.shape[1] - x))
+            h = max(1, min(h, processed.shape[0] - y))
             roi_frame = processed[y : y + h, x : x + w]
         else:
             roi_frame = processed
             x, y = 0, 0
+
+        # Validate ROI frame is not empty
+        if roi_frame.size == 0:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000
+            annotated = self._annotate_frame(
+                frame,
+                np.zeros(frame.shape[:2], dtype=np.uint8),
+                DetectionResult.NO_STRIPE,
+                "Invalid ROI - empty region",
+                roi=roi,
+                fastener_result=fastener_result,
+            )
+            return StripeAnalysis(
+                result=DetectionResult.NO_STRIPE,
+                confidence=0.0,
+                coverage_percent=0.0,
+                gap_count=0,
+                max_gap_size=0,
+                stripe_mask=None,
+                annotated_frame=annotated,
+                processing_time_ms=elapsed_ms,
+                reason="Invalid ROI - empty region",
+            )
 
         # Step 4: Color segmentation (HSV)
         color_mask = self.color_segmenter.segment(roi_frame)

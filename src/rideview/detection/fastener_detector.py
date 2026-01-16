@@ -210,7 +210,8 @@ class CircleDetector:
         # Select best circle (first one, usually highest accumulator)
         circles = np.uint16(np.around(circles[0]))
         best_circle = circles[0]
-        cx, cy, r = best_circle
+        # Convert to int to avoid uint16 overflow in arithmetic
+        cx, cy, r = int(best_circle[0]), int(best_circle[1]), int(best_circle[2])
 
         # Calculate confidence based on edge strength
         confidence = self._calculate_confidence(preprocessed, (cx, cy, r))
@@ -221,6 +222,10 @@ class CircleDetector:
         w = min(frame.shape[1] - x, 2 * r)
         h = min(frame.shape[0] - y, 2 * r)
 
+        # Skip if bounding box is invalid
+        if w <= 0 or h <= 0:
+            return FastenerResult(detected=False)
+
         # Create mask
         mask = np.zeros(frame.shape[:2], dtype=np.uint8)
         cv2.circle(mask, (cx, cy), r, 255, -1)
@@ -228,11 +233,11 @@ class CircleDetector:
         return FastenerResult(
             detected=True,
             shape_type=FastenerType.CIRCLE,
-            bounding_box=(int(x), int(y), int(w), int(h)),
-            center=(int(cx), int(cy)),
+            bounding_box=(x, y, w, h),
+            center=(cx, cy),
             confidence=confidence,
             mask=mask,
-            radius=int(r),
+            radius=r,
             details={"area": np.pi * r * r},
         )
 
@@ -395,7 +400,8 @@ class WasherDetector:
 
         # Check each circle for inner hole (washer characteristic)
         for circle in circles:
-            cx, cy, outer_r = circle
+            # Convert to int to avoid uint16 overflow in arithmetic
+            cx, cy, outer_r = int(circle[0]), int(circle[1]), int(circle[2])
 
             # Look for inner circle
             inner_result = self._detect_inner_circle(preprocessed, (cx, cy), outer_r)
@@ -403,11 +409,15 @@ class WasherDetector:
             if inner_result is not None:
                 inner_r = inner_result
 
-                # Create bounding box
+                # Create bounding box (ensure valid coordinates)
                 x = max(0, cx - outer_r)
                 y = max(0, cy - outer_r)
                 w = min(frame.shape[1] - x, 2 * outer_r)
                 h = min(frame.shape[0] - y, 2 * outer_r)
+
+                # Skip if bounding box is invalid
+                if w <= 0 or h <= 0:
+                    continue
 
                 # Create ring mask
                 mask = np.zeros(frame.shape[:2], dtype=np.uint8)
@@ -420,12 +430,12 @@ class WasherDetector:
                 return FastenerResult(
                     detected=True,
                     shape_type=FastenerType.WASHER,
-                    bounding_box=(int(x), int(y), int(w), int(h)),
-                    center=(int(cx), int(cy)),
+                    bounding_box=(x, y, w, h),
+                    center=(cx, cy),
                     confidence=confidence,
                     mask=mask,
-                    radius=int(outer_r),
-                    inner_radius=int(inner_r),
+                    radius=outer_r,
+                    inner_radius=inner_r,
                     details={"hole_ratio": ratio},
                 )
 
