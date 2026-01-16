@@ -3,7 +3,7 @@
 
 app:
   name: "RideView"
-  version: "2.0.0"
+  version: "2.5.0"
   debug: false
 
 camera:
@@ -163,3 +163,55 @@ snapshots:
   filename_format: "%Y%m%d_%H%M%S_{result}.jpg"
   # Include detection overlay in snapshot
   include_overlay: true
+
+# Mobile/Kivy app settings (v2.5)
+mobile:
+  # Platform detection: auto, desktop, android, ios
+  platform: "auto"
+  # Screen orientation: auto, portrait, landscape
+  orientation: "auto"
+
+# Video recording settings (v2.5)
+recording:
+  # Enable recording feature
+  enabled: true
+  # Output directory: "auto" uses platform-specific default
+  # Desktop: ~/RideView/recordings
+  # Android: /sdcard/RideView/recordings
+  directory: "auto"
+  # Video codec: mp4v, XVID, H264
+  codec: "mp4v"
+  # Recording FPS
+  fps: 15
+  # Resolution (desktop)
+  width: 1280
+  height: 720
+  # Maximum recording duration (seconds), 0 = unlimited
+  max_duration: 600  # 10 minutes
+
+# LLM integration settings (v2.5)
+llm:
+  # Groq API for Tier 2 validation
+  groq:
+    enabled: true
+    # API key loaded from environment variable
+    api_key_env: "GROQ_API_KEY"
+    # Model to use
+    model: "llama-3.2-90b-vision-preview"
+    # Confidence range to trigger Tier 2 validation
+    # If OpenCV confidence is between these values, use LLM
+    confidence_threshold:
+      min: 0.60
+      max: 0.85
+    # Request timeout (seconds)
+    timeout: 10
+
+  # Local LLM (llama.cpp) for offline inference
+  llama_local:
+    enabled: false
+    # Path to GGUF model file
+    model_path: "models/llama-2-7b-int4.gguf"
+    # Context window size
+    context_size: 4096
+    # Number of threads
+    threads: 4

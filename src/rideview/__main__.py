@@ -4,7 +4,8 @@ RideView CLI entry point.
 Main application for live torque stripe detection.
 
 Usage:
-    python -m rideview              # Live detection mode
+    python -m rideview              # Live detection mode (OpenCV window)
+    python -m rideview --mobile     # Kivy cross-platform UI with recording
     python -m rideview --web        # Start web server
     python -m rideview --help       # Show help
 """
@@ -239,6 +240,20 @@ def run_live_detection(config: Config) -> None:
         logger.info("RideView stopped")
 
 
+def run_mobile_app(config: Config) -> None:
+    """Run the Kivy cross-platform mobile/desktop app."""
+    logger = logging.getLogger(__name__)
+    logger.info("Starting Kivy mobile app...")
+
+    try:
+        from .mobile.app import run_mobile_app as _run_mobile_app
+        _run_mobile_app(config)
+    except ImportError as e:
+        logger.error(f"Failed to import Kivy mobile app: {e}")
+        logger.error("Install mobile dependencies: uv sync --extra mobile")
+        sys.exit(1)
+
+
 def run_web_server(config: Config) -> None:
     """Start the Flask web server."""
     logger = logging.getLogger(__name__)
@@ -269,7 +284,8 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python -m rideview              Run live detection
+    python -m rideview              Run live detection (OpenCV window)
+    python -m rideview --mobile     Run Kivy app with video recording
     python -m rideview --web        Start web server
     python -m rideview --camera 1   Use camera index 1
 
@@ -284,6 +300,9 @@ Keyboard controls (live mode):
 
     parser.add_argument(
         "--web", action="store_true", help="Start web server instead of live detection"
+    )
+    parser.add_argument(
+        "--mobile", action="store_true", help="Run Kivy cross-platform UI with video recording"
     )
     parser.add_argument(
         "--camera", type=int, help="Camera index to use (overrides config)"
@@ -320,6 +339,8 @@ Keyboard controls (live mode):
     # Run appropriate mode
     if args.web:
         run_web_server(config)
+    elif args.mobile:
+        run_mobile_app(config)
     else:
         run_live_detection(config)
 

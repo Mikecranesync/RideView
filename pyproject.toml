@@ -1,6 +1,6 @@
 [project]
 name = "rideview"
-version = "2.0.0"
+version = "2.5.0"
 description = "Torque stripe verification system using computer vision"
 readme = "README.md"
 license = { text = "MIT" }
@@ -35,6 +35,18 @@ dev = [
 ]
 web = [
     "gunicorn>=21.0.0",
+]
+mobile = [
+    "kivy>=2.3.0",
+    "kivymd>=1.2.0",
+    "pillow>=10.0.0",
+]
+llm = [
+    "groq>=0.4.0",
+    "llama-cpp-python>=0.2.0",
+]
+all = [
+    "rideview[dev,web,mobile,llm]",
 ]
 
 [project.scripts]
