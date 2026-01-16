@@ -37,6 +37,14 @@ class CameraProvider(Protocol):
         """Get frame dimensions as (width, height)."""
         ...
 
+    def set_brightness(self, value: float) -> None:
+        """Set brightness multiplier (0.5-2.0, default 1.0)."""
+        ...
+
+    def set_contrast(self, value: float) -> None:
+        """Set contrast multiplier (0.5-2.0, default 1.0)."""
+        ...
+
     @property
     def is_open(self) -> bool:
         """Check if camera is currently open."""
@@ -67,6 +75,10 @@ class OpenCVCameraProvider:
         self.height = config.get("height", 720)
         self.fps = config.get("fps", 30)
         self.backend_name = config.get("backend", "CAP_ANY")
+
+        # Brightness/contrast adjustments (user-adjustable)
+        self.brightness = config.get("brightness", 1.0)  # 0.5-2.0 multiplier
+        self.contrast = config.get("contrast", 1.0)      # 0.5-2.0 multiplier
 
         self._cap: cv2.VideoCapture | None = None
         self._is_open = False
@@ -136,7 +148,33 @@ class OpenCVCameraProvider:
         if not ret:
             return None
 
+        # Apply brightness/contrast adjustment if needed
+        if frame is not None and (self.brightness != 1.0 or self.contrast != 1.0):
+            frame = self._adjust_brightness_contrast(frame)
+
         return frame
+
+    def _adjust_brightness_contrast(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Apply brightness and contrast adjustment using cv2.convertScaleAbs.
+
+        The formula is: output = alpha * input + beta
+        - alpha (contrast): values > 1 increase contrast, < 1 decrease
+        - beta (brightness): positive values brighten, negative darken
+        """
+        alpha = self.contrast
+        beta = int((self.brightness - 1.0) * 127)  # Convert multiplier to offset (-127 to +127)
+        return cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
+
+    def set_brightness(self, value: float) -> None:
+        """Set brightness multiplier (0.5-2.0, default 1.0)."""
+        self.brightness = max(0.5, min(2.0, value))
+        logger.debug(f"Brightness set to: {self.brightness}")
+
+    def set_contrast(self, value: float) -> None:
+        """Set contrast multiplier (0.5-2.0, default 1.0)."""
+        self.contrast = max(0.5, min(2.0, value))
+        logger.debug(f"Contrast set to: {self.contrast}")
 
     def release(self) -> None:
         """Release camera resources."""
@@ -191,6 +229,14 @@ class AndroidCameraProvider:
     def get_frame_size(self) -> tuple[int, int]:
         """Get frame dimensions."""
         return (1080, 1920)  # Default Android portrait
+
+    def set_brightness(self, value: float) -> None:
+        """Set brightness (stub)."""
+        pass
+
+    def set_contrast(self, value: float) -> None:
+        """Set contrast (stub)."""
+        pass
 
     @property
     def is_open(self) -> bool:

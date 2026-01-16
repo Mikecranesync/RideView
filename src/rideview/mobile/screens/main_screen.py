@@ -21,6 +21,7 @@ from ..recording_manager import RecordingManager
 from ..widgets.camera_preview import CameraPreview
 from ..widgets.rec_button import RecButton
 from ..widgets.status_overlay import StatusOverlay
+from .settings_screen import SettingsScreen
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +195,40 @@ class MainScreen(FloatLayout):
     def _on_settings_press(self, instance):
         """Handle settings button press."""
         logger.info("Settings button pressed")
-        # TODO: Navigate to settings screen
+        # Create settings screen overlay
+        self.settings_screen = SettingsScreen(
+            config=self.config,
+            camera_provider=self.camera_provider,
+            on_close=self._on_settings_close,
+            size_hint=(0.9, 0.9),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+        )
+        # Add a semi-transparent background
+        from kivy.graphics import Color, Rectangle
+        with self.settings_screen.canvas.before:
+            Color(0.1, 0.1, 0.1, 0.95)
+            self.settings_screen._bg_rect = Rectangle(
+                pos=self.settings_screen.pos,
+                size=self.settings_screen.size,
+            )
+        self.settings_screen.bind(
+            pos=self._update_settings_bg,
+            size=self._update_settings_bg,
+        )
+        self.add_widget(self.settings_screen)
+
+    def _update_settings_bg(self, instance, value):
+        """Update settings background rectangle."""
+        if hasattr(self, 'settings_screen') and hasattr(self.settings_screen, '_bg_rect'):
+            self.settings_screen._bg_rect.pos = self.settings_screen.pos
+            self.settings_screen._bg_rect.size = self.settings_screen.size
+
+    def _on_settings_close(self):
+        """Handle settings screen close."""
+        if hasattr(self, 'settings_screen'):
+            self.remove_widget(self.settings_screen)
+            del self.settings_screen
+            logger.info("Settings closed")
 
     def _on_files_press(self, instance):
         """Handle files button press."""

@@ -132,6 +132,7 @@ class SettingsScreen(BoxLayout):
     def __init__(
         self,
         config: Config,
+        camera_provider=None,
         on_close: Callable[[], None] | None = None,
         **kwargs,
     ):
@@ -141,6 +142,7 @@ class SettingsScreen(BoxLayout):
         super().__init__(**kwargs)
 
         self.config = config
+        self.camera_provider = camera_provider
         self.on_close = on_close
 
         self._create_ui()
@@ -187,6 +189,26 @@ class SettingsScreen(BoxLayout):
                 initial_value=self.config.get("camera.source", 0),
                 step=1,
                 on_change=self._on_camera_change,
+            )
+        )
+        settings_layout.add_widget(
+            SliderSetting(
+                label="Brightness",
+                min_value=50,
+                max_value=200,
+                initial_value=self.config.get("camera.brightness", 1.0) * 100,
+                step=10,
+                on_change=self._on_brightness_change,
+            )
+        )
+        settings_layout.add_widget(
+            SliderSetting(
+                label="Contrast",
+                min_value=50,
+                max_value=200,
+                initial_value=self.config.get("camera.contrast", 1.0) * 100,
+                step=10,
+                on_change=self._on_contrast_change,
             )
         )
 
@@ -260,6 +282,20 @@ class SettingsScreen(BoxLayout):
         """Handle camera index change."""
         logger.info(f"Camera index changed to: {int(value)}")
         # Note: Actual camera change requires app restart
+
+    def _on_brightness_change(self, value: float):
+        """Handle brightness slider change."""
+        brightness = value / 100.0
+        logger.info(f"Brightness changed to: {brightness:.2f}")
+        if self.camera_provider:
+            self.camera_provider.set_brightness(brightness)
+
+    def _on_contrast_change(self, value: float):
+        """Handle contrast slider change."""
+        contrast = value / 100.0
+        logger.info(f"Contrast changed to: {contrast:.2f}")
+        if self.camera_provider:
+            self.camera_provider.set_contrast(contrast)
 
     def _on_recording_enabled_change(self, value: bool):
         """Handle recording enabled change."""
