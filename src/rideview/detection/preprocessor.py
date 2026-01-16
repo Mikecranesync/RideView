@@ -122,3 +122,47 @@ class Preprocessor:
 
         # Convert back to BGR
         return cv2.cvtColor(hsv_enhanced, cv2.COLOR_HSV2BGR)
+
+    # Runtime parameter update methods
+
+    def set_clahe_clip_limit(self, clip_limit: float) -> None:
+        """
+        Update CLAHE clip limit at runtime.
+
+        Args:
+            clip_limit: New clip limit value (1.0-5.0 recommended)
+        """
+        self.clahe_clip_limit = max(1.0, min(5.0, clip_limit))
+        if self.clahe_enabled:
+            self._clahe = cv2.createCLAHE(
+                clipLimit=self.clahe_clip_limit, tileGridSize=self.clahe_tile_grid_size
+            )
+
+    def set_blur_kernel(self, size: int) -> None:
+        """
+        Update blur kernel size at runtime.
+
+        Args:
+            size: Kernel size (must be odd, 3-15 recommended)
+        """
+        # Ensure odd number
+        if size % 2 == 0:
+            size += 1
+        size = max(3, min(15, size))
+        self.blur_kernel = (size, size)
+
+    def set_clahe_enabled(self, enabled: bool) -> None:
+        """Enable or disable CLAHE at runtime."""
+        self.clahe_enabled = enabled
+        if enabled and self._clahe is None:
+            self._clahe = cv2.createCLAHE(
+                clipLimit=self.clahe_clip_limit, tileGridSize=self.clahe_tile_grid_size
+            )
+
+    def get_settings(self) -> dict:
+        """Get current preprocessor settings."""
+        return {
+            "blur_kernel": self.blur_kernel[0],
+            "clahe_enabled": self.clahe_enabled,
+            "clahe_clip_limit": self.clahe_clip_limit,
+        }

@@ -14,6 +14,7 @@ from kivy.uix.label import Label
 import numpy as np
 
 from ...core.config import Config
+from ...core.detector import TorqueStripeDetector
 from ...core.result import StripeAnalysis
 from ..camera_provider import CameraProvider
 from ..detection_worker import DetectionWorker
@@ -22,6 +23,7 @@ from ..widgets.camera_preview import CameraPreview
 from ..widgets.rec_button import RecButton
 from ..widgets.status_overlay import StatusOverlay
 from .settings_screen import SettingsScreen
+from .tuning_screen import TuningScreen
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ class MainScreen(FloatLayout):
         detection_worker: DetectionWorker,
         recording_manager: RecordingManager,
         config: Config,
+        detector: TorqueStripeDetector | None = None,
         **kwargs,
     ):
         """
@@ -59,6 +62,7 @@ class MainScreen(FloatLayout):
             detection_worker: Detection worker instance.
             recording_manager: Recording manager instance.
             config: Application configuration.
+            detector: TorqueStripeDetector for tuning screen.
         """
         super().__init__(**kwargs)
 
@@ -66,6 +70,7 @@ class MainScreen(FloatLayout):
         self.detection_worker = detection_worker
         self.recording_manager = recording_manager
         self.config = config
+        self.detector = detector
 
         # Create UI components
         self._create_ui()
@@ -117,18 +122,28 @@ class MainScreen(FloatLayout):
         settings_btn = Button(
             text="Settings",
             size_hint=(None, 1),
-            width=100,
-            font_size="14sp",
+            width=80,
+            font_size="13sp",
         )
         settings_btn.bind(on_press=self._on_settings_press)
         control_bar.add_widget(settings_btn)
+
+        # Tuning button
+        tuning_btn = Button(
+            text="Tuning",
+            size_hint=(None, 1),
+            width=80,
+            font_size="13sp",
+        )
+        tuning_btn.bind(on_press=self._on_tuning_press)
+        control_bar.add_widget(tuning_btn)
 
         # Files button
         files_btn = Button(
             text="Files",
             size_hint=(None, 1),
-            width=100,
-            font_size="14sp",
+            width=80,
+            font_size="13sp",
         )
         files_btn.bind(on_press=self._on_files_press)
         control_bar.add_widget(files_btn)
@@ -229,6 +244,47 @@ class MainScreen(FloatLayout):
             self.remove_widget(self.settings_screen)
             del self.settings_screen
             logger.info("Settings closed")
+
+    def _on_tuning_press(self, instance):
+        """Handle tuning button press."""
+        logger.info("Tuning button pressed")
+        if self.detector is None:
+            logger.warning("Detector not available for tuning")
+            return
+
+        # Create tuning screen overlay
+        self.tuning_screen = TuningScreen(
+            detector=self.detector,
+            on_close=self._on_tuning_close,
+            size_hint=(0.9, 0.9),
+            pos_hint={"center_x": 0.5, "center_y": 0.5},
+        )
+        # Add a semi-transparent background
+        from kivy.graphics import Color, Rectangle
+        with self.tuning_screen.canvas.before:
+            Color(0.1, 0.1, 0.1, 0.95)
+            self.tuning_screen._bg_rect = Rectangle(
+                pos=self.tuning_screen.pos,
+                size=self.tuning_screen.size,
+            )
+        self.tuning_screen.bind(
+            pos=self._update_tuning_bg,
+            size=self._update_tuning_bg,
+        )
+        self.add_widget(self.tuning_screen)
+
+    def _update_tuning_bg(self, instance, value):
+        """Update tuning background rectangle."""
+        if hasattr(self, 'tuning_screen') and hasattr(self.tuning_screen, '_bg_rect'):
+            self.tuning_screen._bg_rect.pos = self.tuning_screen.pos
+            self.tuning_screen._bg_rect.size = self.tuning_screen.size
+
+    def _on_tuning_close(self):
+        """Handle tuning screen close."""
+        if hasattr(self, 'tuning_screen'):
+            self.remove_widget(self.tuning_screen)
+            del self.tuning_screen
+            logger.info("Tuning closed")
 
     def _on_files_press(self, instance):
         """Handle files button press."""

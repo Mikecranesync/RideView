@@ -140,6 +140,7 @@ class RideViewApp(App):
             detection_worker=self.detection_worker,
             recording_manager=self.recording_manager,
             config=self.app_config,
+            detector=self.detector,
         )
 
         return self.main_screen

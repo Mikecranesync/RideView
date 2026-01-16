@@ -350,3 +350,40 @@ class TorqueStripeDetector:
     ) -> None:
         """Update a color segmentation range."""
         self.color_segmenter.update_color_range(name, lower, upper)
+
+    # Runtime parameter update methods for tuning
+
+    def set_close_kernel(self, size: int) -> None:
+        """Set morphology close kernel size (must be odd, 3-9 recommended)."""
+        if size % 2 == 0:
+            size += 1
+        size = max(3, min(9, size))
+        self.close_kernel = np.ones((size, size), dtype=np.uint8)
+
+    def set_open_kernel(self, size: int) -> None:
+        """Set morphology open kernel size (must be odd, 3-7 recommended)."""
+        if size % 2 == 0:
+            size += 1
+        size = max(3, min(7, size))
+        self.open_kernel = np.ones((size, size), dtype=np.uint8)
+
+    def set_close_iterations(self, iterations: int) -> None:
+        """Set close morphology iterations (1-5)."""
+        self.close_iterations = max(1, min(5, iterations))
+
+    def set_open_iterations(self, iterations: int) -> None:
+        """Set open morphology iterations (1-3)."""
+        self.open_iterations = max(1, min(3, iterations))
+
+    def get_tuning_settings(self) -> dict:
+        """Get all tunable settings for UI display."""
+        return {
+            "preprocessor": self.preprocessor.get_settings(),
+            "validator": self.validator.get_settings(),
+            "morphology": {
+                "close_kernel": self.close_kernel.shape[0],
+                "close_iterations": self.close_iterations,
+                "open_kernel": self.open_kernel.shape[0],
+                "open_iterations": self.open_iterations,
+            },
+        }
